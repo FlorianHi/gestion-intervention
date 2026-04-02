@@ -11,6 +11,50 @@ export default function ImportModal({ onClose, onSuccess }) {
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1)
 
+  // Fonction de nettoyage pour les dates
+  const parseDate = (val) => {
+    console.log(`🔍 Parsing date:`, val, `(type: ${typeof val})`)
+    
+    if (!val && val !== 0) {
+      console.log(`📅 Valeur nulle/undefined, retourne null`)
+      return null;
+    }
+    
+    if (typeof val === 'number') {
+      // Conversion date Excel serial en JS Date
+      // Excel utilise le 1er janvier 1900 comme jour 1 (25569 en jours Unix)
+      const date = new Date((val - 25569) * 86400 * 1000);
+      if (isNaN(date.getTime())) {
+        console.log(`❌ Date Excel invalide: ${val}`)
+        return null;
+      }
+      const result = date.toISOString().split('T')[0];
+      console.log(`📅 Date Excel convertie: ${val} → ${result}`)
+      return result;
+    }
+    
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      if (trimmed === '') {
+        console.log(`📅 Chaîne vide, retourne null`)
+        return null;
+      }
+      
+      // Essayer de parser la date string
+      const parsedDate = new Date(trimmed);
+      if (!isNaN(parsedDate.getTime())) {
+        const result = parsedDate.toISOString().split('T')[0];
+        console.log(`📅 Date string convertie: "${trimmed}" → ${result}`)
+        return result;
+      } else {
+        console.log(`❌ Date string invalide: "${trimmed}"`)
+      }
+    }
+    
+    console.log(`📅 Valeur invalide, retourne null`)
+    return null; // Valeur invalide, retourner null
+  }
+
   const expectedColumns = [
     { key: 'nom_client', label: 'Nom Client' },
     { key: 'adresse_intervention', label: 'Adresse Intervention' },
@@ -69,7 +113,10 @@ export default function ImportModal({ onClose, onSuccess }) {
         const previewData = jsonData.slice(1, 6).map((row, index) => {
           const obj = {}
           headers.forEach((header, headerIndex) => {
-            obj[header] = row[headerIndex] || ''
+            // Important : ne pas utiliser || '' car 0 est falsy !
+            // Utiliser une vérification explicite pour préserver la valeur 0
+            const cellValue = row[headerIndex]
+            obj[header] = (cellValue !== null && cellValue !== undefined) ? cellValue : ''
           })
           console.log(` Ligne aperçu ${index + 1}:`, obj)
           return obj
@@ -145,7 +192,9 @@ export default function ImportModal({ onClose, onSuccess }) {
             try {
               const mapped = {}
               Object.entries(columnMapping).forEach(([dbColumn, excelColumn]) => {
-                mapped[dbColumn] = row[excelColumn]
+                // Préserver la valeur 0 - ne pas utiliser de fallback qui l'écraserait
+                const cellValue = row[excelColumn]
+                mapped[dbColumn] = (cellValue !== null && cellValue !== undefined) ? cellValue : ''
               })
 
               console.log(`🔄 Mapping ligne ${index + 1}:`, mapped)
@@ -161,37 +210,44 @@ export default function ImportModal({ onClose, onSuccess }) {
                 console.log(`🎯 Actif par défaut appliqué ligne ${index + 1}: true`)
               }
               
-              if (!mapped.mois_facture || mapped.mois_facture === '' || mapped.mois_facture === null) {
+              // Traiter mois_facture correctement : 0 est une valeur valide
+              if (mapped.mois_facture !== null && mapped.mois_facture !== undefined && mapped.mois_facture !== '') {
+                // La valeur existe (peut être 0), la convertir en nombre
+                const parsedValue = parseInt(mapped.mois_facture, 10)
+                mapped.mois_facture = isNaN(parsedValue) ? 0 : parsedValue
+                console.log(`📊 Mois facture ligne ${index + 1}: "${mapped.mois_facture}"`)
+              } else {
+                // La cellule est vraiment vide, mettre 0 par défaut
                 mapped.mois_facture = 0
-                console.log(`🎯 Mois facture par défaut appliqué ligne ${index + 1}: 0`)
+                console.log(`🎯 Mois facture par défaut appliqué ligne ${index + 1}: 0 (cellule vide)`)
               }
 
               // Convert boolean and numeric fields
               mapped.actif = mapped.actif === true || mapped.actif === 'TRUE' || mapped.actif === 'true'
-              mapped.mois_facture = parseInt(mapped.mois_facture) || 0
+              // Ne pas reconvertir mois_facture ici, déjà traité ci-dessus
               mapped.equiv = parseFloat(mapped.equiv) || null
               mapped.total_ht = parseFloat(mapped.total_ht) || null
               mapped.reste_a_payer = parseFloat(mapped.reste_a_payer) || null
               
-              // Format dates
-              if (mapped.planifie_le) {
-                const planifieDate = new Date(mapped.planifie_le)
-                if (!isNaN(planifieDate.getTime())) {
-                  mapped.planifie_le = planifieDate.toISOString().split('T')[0]
-                } else {
-                  console.warn(`⚠️ Date planifié_le invalide ligne ${index + 1}:`, mapped.planifie_le)
-                  mapped.planifie_le = null
-                }
-              }
-              if (mapped.date_statut) {
-                const statutDate = new Date(mapped.date_statut)
-                if (!isNaN(statutDate.getTime())) {
-                  mapped.date_statut = statutDate.toISOString().split('T')[0]
-                } else {
-                  console.warn(`⚠️ Date date_statut invalide ligne ${index + 1}:`, mapped.date_statut)
-                  mapped.date_statut = null
-                }
-              }
+              // Nettoyer les champs de type date avec la fonction parseDate
+              console.log(`📅 Traitement des dates pour ligne ${index + 1}:`)
+              console.log(`  - planifie_le brut:`, mapped.planifie_le)
+              console.log(`  - date_statut brut:`, mapped.date_statut)
+              
+              mapped.planifie_le = parseDate(mapped.planifie_le)
+              mapped.date_statut = parseDate(mapped.date_statut)
+              
+              console.log(`  - planifie_le nettoyé:`, mapped.planifie_le)
+              console.log(`  - date_statut nettoyé:`, mapped.date_statut)
+              
+              // Nettoyer les autres champs texte pour éviter les chaînes vides
+              mapped.nom_client = mapped.nom_client || null
+              mapped.adresse_intervention = mapped.adresse_intervention || null
+              mapped.ville = mapped.ville || null
+              mapped.code_postal = mapped.code_postal || null
+              mapped.mail_client = mapped.mail_client || null
+              mapped.commentaire_commande = mapped.commentaire_commande || null
+              mapped.chiffrage = mapped.chiffrage || null
 
               mapped.created_at = new Date().toISOString()
               mapped.updated_at = new Date().toISOString()
@@ -255,7 +311,7 @@ export default function ImportModal({ onClose, onSuccess }) {
           if (allErrors.length > 0) {
             console.warn(`⚠️ ${allErrors.length} lot(s) ont échoué sur ${batches.length} total`)
             console.warn('📄 Détails des erreurs:', allErrors)
-            toast.warning(`${totalInserted} interventions importées avec succès, ${allErrors.length} lot(s) en erreur`)
+            toast(`⚠️ ${totalInserted} interventions importées avec succès, ${allErrors.length} lot(s) en erreur`)
           } else {
             console.log('✅ Tous les lots insérés avec succès')
             toast.success(`${totalInserted} interventions importées avec succès`)

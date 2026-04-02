@@ -166,23 +166,50 @@ export default function Interventions() {
     filterInterventions()
   }, [interventions, searchTerm, statusFilter, monthFilter, codePostalFilter])
 
-  const fetchInterventions = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('interventions')
-        .select('*')
-        .order('updated_at', { ascending: false })
-
-      if (error) throw error
-
-      setInterventions(data || [])
-    } catch (error) {
-      toast.error('Erreur lors du chargement des interventions')
-      console.error('Error fetching interventions:', error)
-    } finally {
-      setLoading(false)
-    }
+  const fetchAllInterventions = async () => {
+  let allData = [];
+  let from = 0;
+  const batchSize = 1000;
+  let batchCount = 0;
+  
+  console.log('🔍 Début du chargement paginé de toutes les interventions...')
+  
+  while (true) {
+    batchCount++;
+    console.log(`📦 Chargement du lot ${batchCount} (lignes ${from} à ${from + batchSize - 1})`)
+    
+    const { data, error } = await supabase
+      .from('interventions')
+      .select('*')
+      .range(from, from + batchSize - 1)
+      .order('updated_at', { ascending: false });
+    
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    
+    allData = [...allData, ...data];
+    console.log(`✅ Lot ${batchCount} chargé : ${data.length} interventions`)
+    
+    if (data.length < batchSize) break;
+    from += batchSize;
   }
+  
+  console.log(`🎉 Chargement terminé : ${allData.length} interventions totales chargées en ${batchCount} lot(s)`)
+  return allData;
+}
+
+const fetchInterventions = async () => {
+  setLoading(true)
+  try {
+    const data = await fetchAllInterventions()
+    setInterventions(data)
+  } catch (error) {
+    console.error('❌ Erreur lors du chargement des interventions:', error)
+    toast.error('Erreur lors du chargement des données')
+  } finally {
+    setLoading(false)
+  }
+}
 
   const filterInterventions = () => {
     let filtered = interventions
@@ -242,25 +269,48 @@ export default function Interventions() {
   }
 
   const handleDeleteAll = async () => {
-    if (deleteAllCode !== 'florianvalide') return
+    if (deleteAllCode !== 'florianvalide') {
+      console.log('❌ Code incorrect:', deleteAllCode)
+      return
+    }
     
+    console.log('🔍 Début de la suppression totale...')
     setIsDeletingAll(true)
     
     try {
+      // Vérifier d'abord combien d'interventions existent
+      const { count, error: countError } = await supabase
+        .from('interventions')
+        .select('*', { count: 'exact', head: true })
+      
+      if (countError) {
+        console.error('❌ Erreur comptage:', countError)
+        throw countError
+      }
+      
+      console.log('📊 Nombre d\'interventions à supprimer:', count)
+      
+      // Supprimer toutes les interventions avec la bonne méthode
       const { error } = await supabase
         .from('interventions')
         .delete()
-        .neq('id', null) // Supprime tous les enregistrements
+        .neq('id', '00000000-0000-0000-0000-000000000000')
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ Erreur Supabase:', error)
+        console.error('📄 Détails:', error.details)
+        console.error('📄 Code:', error.code)
+        throw error
+      }
 
+      console.log('✅ Suppression réussie')
       toast.success('Base de données vidée avec succès')
       setShowDeleteAllModal(false)
       setDeleteAllCode('')
       fetchInterventions()
     } catch (error) {
-      toast.error('Erreur lors de la suppression totale')
-      console.error('Error deleting all interventions:', error)
+      console.error('❌ Erreur lors de la suppression totale:', error)
+      toast.error(`Erreur lors de la suppression: ${error.message}`)
     } finally {
       setIsDeletingAll(false)
     }
@@ -412,7 +462,10 @@ export default function Interventions() {
               Exporter
             </button>
             <button
-              onClick={() => setShowDeleteAllModal(true)}
+              onClick={() => {
+                console.log('🔍 Clic sur "Tout supprimer" détecté')
+                setShowDeleteAllModal(true)
+              }}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -437,6 +490,30 @@ export default function Interventions() {
             >
               <Trash2 size={16} style={{ marginRight: '8px' }} />
               Tout supprimer
+            </button>
+            <button
+              onClick={() => {
+                setSelectedIntervention(null)
+                setShowModal(true)
+              }}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                padding: '10px 20px',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: 'white',
+                backgroundColor: '#1e40af',
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#1e3a8a'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#1e40af'}
+            >
+              <Plus size={16} style={{ marginRight: '8px' }} />
+              Créer une intervention
             </button>
           </div>
         </div>
@@ -1156,7 +1233,11 @@ export default function Interventions() {
               <input
                 type="password"
                 value={deleteAllCode}
-                onChange={(e) => setDeleteAllCode(e.target.value)}
+                onChange={(e) => {
+                  const newValue = e.target.value
+                  console.log('🔍 Saisie du code:', newValue)
+                  setDeleteAllCode(newValue)
+                }}
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -1197,7 +1278,12 @@ export default function Interventions() {
                 Annuler
               </button>
               <button
-                onClick={handleDeleteAll}
+                onClick={() => {
+                  console.log('🔍 Clic sur "Supprimer tout" détecté')
+                  console.log('🔍 Code actuel:', deleteAllCode)
+                  console.log('🔍 Code valide?', deleteAllCode === 'florianvalide')
+                  handleDeleteAll()
+                }}
                 disabled={deleteAllCode !== 'florianvalide' || isDeletingAll}
                 style={{
                   padding: '12px 24px',

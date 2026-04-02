@@ -7,23 +7,27 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const { login } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setLoading(true)
+    setError('')
 
     try {
       const { error } = await login(email, password)
       
       if (error) {
+        setError(error.message)
         toast.error(error.message)
       } else {
         toast.success('Connexion réussie')
         navigate('/dashboard')
       }
     } catch (error) {
+      setError('Erreur de connexion')
       toast.error('Erreur de connexion')
     } finally {
       setLoading(false)
@@ -31,67 +35,192 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Gestion des Interventions ERI
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Connectez-vous à votre compte
+    <div style={{
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #1e3a5f 0%, #2d5a8e 100%)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '16px',
+        padding: '48px',
+        width: '420px',
+        maxWidth: '100%',
+        boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+      }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            marginBottom: '8px'
+          }}>
+            <span style={{ fontSize: '32px' }}>🔧</span>
+            <h1 style={{
+              fontSize: '32px',
+              fontWeight: 'bold',
+              color: '#1e3a5f',
+              margin: 0
+            }}>
+              ERI Gestion
+            </h1>
+          </div>
+          <p style={{
+            fontSize: '16px',
+            color: '#64748b',
+            margin: 0
+          }}>
+            Gestion des Interventions
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email" className="sr-only">
-                Adresse email
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Adresse email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Mot de passe
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Mot de passe"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+
+        {/* Separator */}
+        <div style={{
+          height: '1px',
+          backgroundColor: '#e2e8f0',
+          marginBottom: '32px'
+        }}></div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Email Field */}
+          <div>
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#374151',
+              marginBottom: '8px'
+            }}>
+              Adresse email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Entrez votre email"
+              required
+              style={{
+                width: '100%',
+                height: '48px',
+                padding: '12px 16px',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+                boxSizing: 'border-box'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#1e3a5f'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+            />
           </div>
 
+          {/* Password Field */}
           <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                'Se connecter'
-              )}
-            </button>
+            <label style={{
+              display: 'block',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#374151',
+              marginBottom: '8px'
+            }}>
+              Mot de passe
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Entrez votre mot de passe"
+              required
+              style={{
+                width: '100%',
+                height: '48px',
+                padding: '12px 16px',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+                boxSizing: 'border-box'
+              }}
+              onFocus={(e) => e.target.style.borderColor = '#1e3a5f'}
+              onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
+            />
           </div>
+
+          {/* Error Message */}
+          {error && (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              borderRadius: '8px',
+              color: '#dc2626',
+              fontSize: '14px'
+            }}>
+              {error}
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              height: '48px',
+              backgroundColor: loading ? '#94a3b8' : '#1e3a5f',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'background-color 0.2s',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) e.target.style.backgroundColor = '#2d5a8e'
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) e.target.style.backgroundColor = '#1e3a5f'
+            }}
+          >
+            {loading ? (
+              <>
+                <div style={{
+                  width: '16px',
+                  height: '16px',
+                  border: '2px solid white',
+                  borderTop: '2px solid transparent',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite'
+                }}></div>
+                Connexion en cours...
+              </>
+            ) : (
+              'Se connecter'
+            )}
+          </button>
         </form>
       </div>
+
+      {/* Global styles for animation */}
+      <style jsx>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   )
 }

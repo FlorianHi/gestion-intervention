@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [selectedMonths, setSelectedMonths] = useState([new Date().getMonth() + 1])
 
   const months = [
+    { value: 0, label: 'En retard' },
     { value: 1, label: 'Janvier' },
     { value: 2, label: 'Février' },
     { value: 3, label: 'Mars' },
@@ -76,9 +77,10 @@ export default function Dashboard() {
 
       const recentInterventions = interventions.slice(0, 5)
 
-      // Prepare chart data (full year view)
+      // Prepare chart data (full year view with month 0)
       const chartMonths = []
       const allMonths = [
+        { value: 0, label: 'En retard' },
         { value: 1, label: 'Janvier' },
         { value: 2, label: 'Février' },
         { value: 3, label: 'Mars' },
@@ -335,7 +337,7 @@ export default function Dashboard() {
           marginBottom: '40px'
         }}>
           <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1e293b', marginBottom: '24px' }}>
-            Répartition des interventions par mois
+            Répartition des interventions par mois de facturation
           </h2>
           <div style={{ height: '320px' }}>
             <ResponsiveContainer width="100%" height="100%">
@@ -357,12 +359,24 @@ export default function Dashboard() {
                     borderRadius: '8px',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                   }}
+                  formatter={(value, name, props) => {
+                    if (props.payload.month === 'En retard') {
+                      return [
+                        <span style={{ color: '#dc2626', fontWeight: 'bold' }}>{value}</span>,
+                        <span style={{ color: '#dc2626' }}>{name} (En retard)</span>
+                      ]
+                    }
+                    return [value, name]
+                  }}
                 />
                 <Bar dataKey="aFaire" stackId="a" fill="#ef4444" name="À faire" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="planifiees" stackId="a" fill="#f59e0b" name="Planifiées" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="faites" stackId="a" fill="#10b981" name="Faites" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+          <div style={{ marginTop: '16px', fontSize: '12px', color: '#64748b' }}>
+            <span style={{ color: '#dc2626', fontWeight: 'bold' }}>● En retard</span> = Interventions avec mois_facture = 0 (non facturées)
           </div>
         </div>
 
